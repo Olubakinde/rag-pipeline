@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from rag_pipeline.chunking.base import Chunker
 from rag_pipeline.chunking.chunk import Chunk
 from rag_pipeline.chunking.fixed import FixedSizeChunker
 from rag_pipeline.document import Document
@@ -21,7 +22,7 @@ class IngestionPipeline:
     def __init__(
         self,
         registry: ParserRegistry | None = None,
-        chunker: FixedSizeChunker | None = None,
+        chunker: Chunker | None = None,
     ):
         # Allow custom components while providing defaults.
         self.registry = (
