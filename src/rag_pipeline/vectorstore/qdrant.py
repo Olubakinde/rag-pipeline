@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
 from qdrant_client import QdrantClient, models
@@ -25,18 +26,24 @@ class QdrantVectorStore:
         collection_name: str = "documents",
         vector_size: int = 384,
         client: QdrantClient | None = None,
+        path: str | Path | None = None,
     ):
         if vector_size <= 0:
             raise ValueError("Vector size must be positive")
 
+        if client is not None and path is not None:
+            raise ValueError("Provide either client or path, not both")
+
         self.collection_name = collection_name
         self.vector_size = vector_size
-        self.client = (
-            client if client is not None
-            else QdrantClient(":memory:")
-        )
 
-        # Create a collection if it doesn't already exist.
+        if client is not None:
+            self.client = client
+        elif path is not None:
+            self.client = QdrantClient(path=str(path))
+        else:
+            self.client = QdrantClient(":memory:")
+
         if not self.client.collection_exists(
             collection_name=self.collection_name
         ):
