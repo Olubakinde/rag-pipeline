@@ -19,6 +19,10 @@ dev = [
     "reportlab"
 ]
 
+vectorstore = [
+    "qdrant-client>=1.15,<2"
+]
+
 embeddings = [
     "sentence-transformers>=3.0"
 ]
