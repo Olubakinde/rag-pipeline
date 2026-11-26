@@ -2,6 +2,7 @@ from pathlib import Path
 
 from rag_pipeline.embeddings.base import EmbeddingProvider
 from rag_pipeline.ingestion import IngestionPipeline
+from rag_pipeline.reranking.base import Reranker
 from rag_pipeline.vectorstore.qdrant import (
     QdrantVectorStore,
     SearchHit,
@@ -17,7 +18,12 @@ class RAGPipeline:
         embedder: EmbeddingProvider,
         store: QdrantVectorStore,
         ingestion: IngestionPipeline | None = None,
+        reranker: Reranker | None = None,
+        rerank_candidates: int = 20,
     ):
+        if rerank_candidates <= 0:
+            raise ValueError("Rerank candidates must be positive")
+
         self.embedder = embedder
         self.store = store
         self.ingestion = (
@@ -25,6 +31,8 @@ class RAGPipeline:
             if ingestion is not None
             else IngestionPipeline()
         )
+        self.reranker = reranker
+        self.rerank_candidates = rerank_candidates
 
     def index(self, path: str | Path) -> StoredDocument:
         """Parse, chunk, embed, and store a document."""
@@ -58,13 +66,25 @@ class RAGPipeline:
 
         query_vector = self.embedder.embed_query(query)
 
-        return self.store.search(
+        # Over-fetch so the reranker has more candidates to choose from.
+        fetch_limit = (
+            max(limit, self.rerank_candidates)
+            if self.reranker is not None
+            else limit
+        )
+
+        hits = self.store.search(
             query_vector,
-            limit=limit,
+            limit=fetch_limit,
             min_score=min_score,
             sources=sources,
             diversity=diversity,
         )
+
+        if self.reranker is not None:
+            hits = self.reranker.rerank(query, hits)
+
+        return hits[:limit]
 
     def list_documents(self) -> list[StoredDocument]:
         """Summarize every indexed document."""

@@ -15,6 +15,7 @@ from rag_pipeline.embeddings.sentence_transformer import (
     SentenceTransformerEmbeddingProvider,
 )
 from rag_pipeline.ingestion import IngestionPipeline
+from rag_pipeline.reranking.cross_encoder import CrossEncoderReranker
 from rag_pipeline.retrieval import RAGPipeline
 from rag_pipeline.vectorstore.qdrant import QdrantVectorStore
 
@@ -59,6 +60,7 @@ class SearchResult(BaseModel):
     start: int
     end: int
     pages: list[int]
+    rerank_score: float | None = None
 
 
 class SearchResponse(BaseModel):
@@ -83,6 +85,12 @@ def create_app(
                 model_name=settings.embedding_model,
             )
 
+            reranker = (
+                CrossEncoderReranker(model_name=settings.reranker_model)
+                if settings.reranker_model
+                else None
+            )
+
             # Persist vectors between server restarts.
             owned_store = QdrantVectorStore(
                 collection_name=settings.collection_name,
@@ -99,6 +107,8 @@ def create_app(
                         overlap=settings.chunk_overlap,
                     )
                 ),
+                reranker=reranker,
+                rerank_candidates=settings.rerank_candidates,
             )
         else:
             # Tests can supply a lightweight fake embedding model.
@@ -263,6 +273,7 @@ def create_app(
                     start=hit.chunk.start,
                     end=hit.chunk.end,
                     pages=hit.pages,
+                    rerank_score=hit.rerank_score,
                 )
                 for hit in hits
             ]

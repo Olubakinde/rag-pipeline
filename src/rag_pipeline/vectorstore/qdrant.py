@@ -16,6 +16,7 @@ class SearchHit:
     score: float
     source: str
     pages: list[int]
+    rerank_score: float | None = None
 
 
 @dataclass

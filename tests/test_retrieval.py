@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 from qdrant_client import QdrantClient
 
@@ -67,6 +69,62 @@ def test_reindex_same_file_without_duplicates(tmp_path):
     pipeline.index(file_path)
 
     assert len(pipeline.search("robots", limit=10)) == 1
+
+
+class ReversingReranker:
+    """Reverse the candidate order and record how many it received."""
+
+    def __init__(self):
+        self.received = 0
+
+    def rerank(self, query, hits):
+        self.received = len(hits)
+
+        return [
+            replace(hit, rerank_score=float(position))
+            for position, hit in enumerate(reversed(hits))
+        ]
+
+
+def test_search_with_reranker(tmp_path):
+    store = QdrantVectorStore(vector_size=2)
+    reranker = ReversingReranker()
+
+    pipeline = RAGPipeline(
+        embedder=FakeEmbedder(),
+        store=store,
+        ingestion=IngestionPipeline(
+            chunker=FixedSizeChunker(chunk_size=100, overlap=0)
+        ),
+        reranker=reranker,
+        rerank_candidates=3,
+    )
+
+    for name, text in [
+        ("a.txt", "Robots navigate."),
+        ("b.txt", "Coffee tastes good."),
+        ("c.txt", "Tea is warm."),
+    ]:
+        file_path = tmp_path / name
+        file_path.write_text(text, encoding="utf-8")
+        pipeline.index(file_path)
+
+    hits = pipeline.search("robots", limit=1)
+
+    # All candidates reach the reranker; only the top result is returned.
+    assert reranker.received == 3
+    assert len(hits) == 1
+    assert hits[0].source != "a.txt"
+    assert hits[0].rerank_score == 0.0
+
+
+def test_reject_invalid_rerank_candidates():
+    with pytest.raises(ValueError):
+        RAGPipeline(
+            embedder=FakeEmbedder(),
+            store=QdrantVectorStore(vector_size=2),
+            rerank_candidates=0,
+        )
 
 
 def test_persistent_storage(tmp_path):

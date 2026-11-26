@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     chunk_overlap: int = Field(default=150, ge=0)
     max_upload_mb: int = Field(default=10, gt=0)
 
+    # Reranking is off unless a cross-encoder model is named.
+    reranker_model: str | None = None
+    rerank_candidates: int = Field(default=20, gt=0)
+
     @model_validator(mode="after")
     def check_overlap(self):
         if self.chunk_overlap >= self.chunk_size:
