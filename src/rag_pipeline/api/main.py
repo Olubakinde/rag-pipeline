@@ -9,15 +9,9 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from pypdf.errors import PdfReadError
 
-from rag_pipeline.chunking.boundaries import WordBoundaryChunker
 from rag_pipeline.config import Settings
-from rag_pipeline.embeddings.sentence_transformer import (
-    SentenceTransformerEmbeddingProvider,
-)
-from rag_pipeline.ingestion import IngestionPipeline
-from rag_pipeline.reranking.cross_encoder import CrossEncoderReranker
+from rag_pipeline.factory import open_pipeline
 from rag_pipeline.retrieval import RAGPipeline
-from rag_pipeline.vectorstore.qdrant import QdrantVectorStore
 
 ALLOWED_EXTENSIONS = {".txt", ".pdf", ".docx"}
 
@@ -78,47 +72,15 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        owned_store = None
-
-        if pipeline is None:
-            embedder = SentenceTransformerEmbeddingProvider(
-                model_name=settings.embedding_model,
-            )
-
-            reranker = (
-                CrossEncoderReranker(model_name=settings.reranker_model)
-                if settings.reranker_model
-                else None
-            )
-
-            # Persist vectors between server restarts.
-            owned_store = QdrantVectorStore(
-                collection_name=settings.collection_name,
-                vector_size=embedder.dimension,
-                path=settings.qdrant_path,
-            )
-
-            app.state.pipeline = RAGPipeline(
-                embedder=embedder,
-                store=owned_store,
-                ingestion=IngestionPipeline(
-                    chunker=WordBoundaryChunker(
-                        chunk_size=settings.chunk_size,
-                        overlap=settings.chunk_overlap,
-                    )
-                ),
-                reranker=reranker,
-                rerank_candidates=settings.rerank_candidates,
-            )
-        else:
+        if pipeline is not None:
             # Tests can supply a lightweight fake embedding model.
             app.state.pipeline = pipeline
-
-        try:
             yield
-        finally:
-            if owned_store is not None:
-                owned_store.client.close()
+            return
+
+        with open_pipeline(settings) as configured_pipeline:
+            app.state.pipeline = configured_pipeline
+            yield
 
     app = FastAPI(
         title="RAG Pipeline API",
