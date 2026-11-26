@@ -4,10 +4,11 @@ import pytest
 from typer.testing import CliRunner
 
 from rag_pipeline import cli
+from rag_pipeline.chunking.chunk import Chunk
 from rag_pipeline.chunking.fixed import FixedSizeChunker
 from rag_pipeline.ingestion import IngestionPipeline
 from rag_pipeline.retrieval import RAGPipeline
-from rag_pipeline.vectorstore.qdrant import QdrantVectorStore
+from rag_pipeline.vectorstore.qdrant import QdrantVectorStore, SearchHit
 
 runner = CliRunner()
 
@@ -142,6 +143,34 @@ def test_search_truncates_long_passages(pipeline, tmp_path):
     result = runner.invoke(cli.app, ["search", "robots"])
 
     assert "..." in result.output
+
+
+@pytest.mark.parametrize(
+    ("pages", "expected"),
+    [
+        ([1], "report.pdf, page 1 "),
+        ([2, 3], "report.pdf, pages 2, 3 "),
+    ],
+)
+def test_search_shows_page_numbers(pipeline, monkeypatch, pages, expected):
+    hit = SearchHit(
+        chunk=Chunk(
+            document_id="doc-001",
+            text="Robots navigate.",
+            index=0,
+            start=0,
+            end=16,
+        ),
+        score=1.0,
+        source="report.pdf",
+        pages=pages,
+    )
+
+    monkeypatch.setattr(pipeline, "search", lambda *args, **kwargs: [hit])
+
+    result = runner.invoke(cli.app, ["search", "robots"])
+
+    assert expected in result.output
 
 
 def test_search_without_results(pipeline):

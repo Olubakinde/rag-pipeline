@@ -122,7 +122,8 @@ def search(
         location = hit.source
 
         if hit.pages:
-            location += f", pages {', '.join(map(str, hit.pages))}"
+            label = "page" if len(hit.pages) == 1 else "pages"
+            location += f", {label} {', '.join(map(str, hit.pages))}"
 
         score = f"score {hit.score:.3f}"
 
