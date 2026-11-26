@@ -18,6 +18,15 @@ class SearchHit:
     pages: list[int]
 
 
+@dataclass
+class StoredDocument:
+    """Summary of an indexed document."""
+
+    document_id: str
+    source: str
+    chunk_count: int
+
+
 def _document_filter(document_id: str) -> models.Filter:
     return models.Filter(
         must=[
@@ -214,3 +223,59 @@ class QdrantVectorStore:
             )
 
         return hits
+
+    def list_documents(self) -> list[StoredDocument]:
+        """Summarize every indexed document, sorted by source name."""
+
+        documents: dict[str, StoredDocument] = {}
+        offset = None
+
+        while True:
+            points, offset = self.client.scroll(
+                collection_name=self.collection_name,
+                limit=256,
+                offset=offset,
+                with_payload=["document_id", "source"],
+                with_vectors=False,
+            )
+
+            for point in points:
+                payload = point.payload or {}
+                document_id = payload["document_id"]
+
+                if document_id not in documents:
+                    documents[document_id] = StoredDocument(
+                        document_id=document_id,
+                        source=payload["source"],
+                        chunk_count=0,
+                    )
+
+                documents[document_id].chunk_count += 1
+
+            if offset is None:
+                break
+
+        return sorted(
+            documents.values(),
+            key=lambda document: (document.source, document.document_id),
+        )
+
+    def delete_document(self, document_id: str) -> int:
+        """Remove a document's chunks and return how many were deleted."""
+
+        selector = _document_filter(document_id)
+
+        count = self.client.count(
+            collection_name=self.collection_name,
+            count_filter=selector,
+            exact=True,
+        ).count
+
+        if count:
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=models.FilterSelector(filter=selector),
+                wait=True,
+            )
+
+        return count

@@ -5,6 +5,7 @@ from rag_pipeline.ingestion import IngestionPipeline
 from rag_pipeline.vectorstore.qdrant import (
     QdrantVectorStore,
     SearchHit,
+    StoredDocument,
 )
 
 
@@ -25,7 +26,7 @@ class RAGPipeline:
             else IngestionPipeline()
         )
 
-    def index(self, path: str | Path) -> int:
+    def index(self, path: str | Path) -> StoredDocument:
         """Parse, chunk, embed, and store a document."""
 
         result = self.ingestion.ingest(path)
@@ -37,7 +38,13 @@ class RAGPipeline:
 
         vectors = self.embedder.embed_documents(texts)
 
-        return self.store.add(result, vectors)
+        count = self.store.add(result, vectors)
+
+        return StoredDocument(
+            document_id=result.document.id,
+            source=result.document.source,
+            chunk_count=count,
+        )
 
     def search(
         self,
@@ -52,3 +59,13 @@ class RAGPipeline:
             query_vector,
             limit=limit,
         )
+
+    def list_documents(self) -> list[StoredDocument]:
+        """Summarize every indexed document."""
+
+        return self.store.list_documents()
+
+    def delete_document(self, document_id: str) -> int:
+        """Remove a document from the index."""
+
+        return self.store.delete_document(document_id)

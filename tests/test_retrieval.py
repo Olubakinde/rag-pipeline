@@ -42,7 +42,7 @@ def test_index_and_search(tmp_path):
     store = QdrantVectorStore(vector_size=2)
     pipeline = make_pipeline(store)
 
-    assert pipeline.index(file_path) == 1
+    assert pipeline.index(file_path).chunk_count == 1
 
     hits = pipeline.search("How do robots navigate?")
 
@@ -85,7 +85,7 @@ def test_persistent_storage(tmp_path):
 
     pipeline = make_pipeline(store)
 
-    assert pipeline.index(document_path) == 1
+    assert pipeline.index(document_path).chunk_count == 1
     store.client.close()
 
     # Reopen the database in a new client.

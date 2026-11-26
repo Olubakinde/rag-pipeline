@@ -124,6 +124,87 @@ def test_failed_add_keeps_existing_chunks():
     assert len(store.search([1.0, 0.0], limit=10)) == 2
 
 
+def make_single_chunk_result(document_id, source, text):
+    return IngestionResult(
+        document=Document(id=document_id, text=text, source=source),
+        chunks=[
+            Chunk(
+                document_id=document_id,
+                text=text,
+                index=0,
+                start=0,
+                end=len(text),
+            )
+        ],
+    )
+
+
+def test_list_documents():
+    store = QdrantVectorStore(vector_size=2)
+
+    store.add(make_result(), [[1.0, 0.0], [0.0, 1.0]])
+    store.add(
+        make_single_chunk_result("doc-002", "atlas.txt", "Maps."),
+        [[1.0, 0.0]],
+    )
+
+    documents = store.list_documents()
+
+    assert [
+        (document.source, document.document_id, document.chunk_count)
+        for document in documents
+    ] == [
+        ("atlas.txt", "doc-002", 1),
+        ("notes.txt", "doc-001", 2),
+    ]
+
+
+def test_list_documents_spans_multiple_pages():
+    store = QdrantVectorStore(vector_size=2)
+
+    # More documents than a single scroll page returns.
+    for number in range(300):
+        store.add(
+            make_single_chunk_result(
+                f"doc-{number:03}",
+                f"file-{number:03}.txt",
+                f"Text {number}",
+            ),
+            [[1.0, 0.0]],
+        )
+
+    assert len(store.list_documents()) == 300
+
+
+def test_list_documents_empty():
+    assert QdrantVectorStore(vector_size=2).list_documents() == []
+
+
+def test_delete_document():
+    store = QdrantVectorStore(vector_size=2)
+
+    store.add(make_result(), [[1.0, 0.0], [0.0, 1.0]])
+    store.add(
+        make_single_chunk_result("doc-002", "atlas.txt", "Maps."),
+        [[1.0, 0.0]],
+    )
+
+    assert store.delete_document("doc-001") == 2
+
+    hits = store.search([1.0, 0.0], limit=10)
+
+    assert [hit.chunk.document_id for hit in hits] == ["doc-002"]
+
+
+def test_delete_unknown_document():
+    store = QdrantVectorStore(vector_size=2)
+
+    store.add(make_result(), [[1.0, 0.0], [0.0, 1.0]])
+
+    assert store.delete_document("missing") == 0
+    assert len(store.search([1.0, 0.0], limit=10)) == 2
+
+
 def test_mismatched_embedding_count():
     store = QdrantVectorStore(vector_size=2)
 

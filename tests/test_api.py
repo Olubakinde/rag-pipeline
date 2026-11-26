@@ -146,6 +146,60 @@ def test_upload_docx(client):
     assert response.json()["chunks_indexed"] == 1
 
 
+def upload_text(client, filename, content):
+    response = client.post(
+        "/documents",
+        files={"file": (filename, content, "text/plain")},
+    )
+
+    assert response.status_code == 201
+
+    return response.json()["document_id"]
+
+
+def test_list_documents(client):
+    assert client.get("/documents").json() == {"documents": []}
+
+    document_id = upload_text(client, "notes.txt", b"Robots navigate.")
+
+    response = client.get("/documents")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "documents": [
+            {
+                "document_id": document_id,
+                "source": "notes.txt",
+                "chunk_count": 1,
+            }
+        ]
+    }
+
+
+def test_delete_document(client):
+    document_id = upload_text(client, "notes.txt", b"Robots navigate.")
+
+    response = client.delete(f"/documents/{document_id}")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "document_id": document_id,
+        "chunks_deleted": 1,
+    }
+
+    assert client.get("/documents").json() == {"documents": []}
+
+    search_response = client.post("/search", json={"query": "robots"})
+
+    assert search_response.json()["results"] == []
+
+
+def test_delete_unknown_document(client):
+    response = client.delete("/documents/missing")
+
+    assert response.status_code == 404
+
+
 def test_unsupported_file(client):
     response = client.post(
         "/documents",

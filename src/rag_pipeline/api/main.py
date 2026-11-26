@@ -22,8 +22,24 @@ ALLOWED_EXTENSIONS = {".txt", ".pdf", ".docx"}
 
 
 class IndexResponse(BaseModel):
+    document_id: str
     filename: str
     chunks_indexed: int
+
+
+class DocumentSummary(BaseModel):
+    document_id: str
+    source: str
+    chunk_count: int
+
+
+class DocumentListResponse(BaseModel):
+    documents: list[DocumentSummary]
+
+
+class DeleteResponse(BaseModel):
+    document_id: str
+    chunks_deleted: int
 
 
 class SearchRequest(BaseModel):
@@ -155,7 +171,7 @@ def create_app(
                 )
 
             try:
-                count = app.state.pipeline.index(file_path)
+                indexed = app.state.pipeline.index(file_path)
             except (
                 ValueError,
                 UnicodeError,
@@ -169,8 +185,47 @@ def create_app(
                 ) from exc
 
         return IndexResponse(
+            document_id=indexed.document_id,
             filename=filename,
-            chunks_indexed=count,
+            chunks_indexed=indexed.chunk_count,
+        )
+
+    @app.get(
+        "/documents",
+        response_model=DocumentListResponse,
+    )
+    def list_documents():
+        """List every indexed document."""
+
+        return DocumentListResponse(
+            documents=[
+                DocumentSummary(
+                    document_id=document.document_id,
+                    source=document.source,
+                    chunk_count=document.chunk_count,
+                )
+                for document in app.state.pipeline.list_documents()
+            ]
+        )
+
+    @app.delete(
+        "/documents/{document_id}",
+        response_model=DeleteResponse,
+    )
+    def delete_document(document_id: str):
+        """Remove a document and all of its chunks from the index."""
+
+        deleted = app.state.pipeline.delete_document(document_id)
+
+        if deleted == 0:
+            raise HTTPException(
+                status_code=404,
+                detail="Document not found",
+            )
+
+        return DeleteResponse(
+            document_id=document_id,
+            chunks_deleted=deleted,
         )
 
     @app.post(
