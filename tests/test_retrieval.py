@@ -104,6 +104,27 @@ def test_persistent_storage(tmp_path):
         reopened_store.client.close()
 
 
+def test_reject_mismatched_collection_dimension(tmp_path):
+    database_path = tmp_path / "vector_database"
+
+    QdrantVectorStore(
+        vector_size=2,
+        path=database_path,
+    ).client.close()
+
+    with pytest.raises(ValueError, match="2-dimensional"):
+        QdrantVectorStore(
+            vector_size=3,
+            path=database_path,
+        )
+
+    # The failed attempt must release the local database lock.
+    QdrantVectorStore(
+        vector_size=2,
+        path=database_path,
+    ).client.close()
+
+
 def test_reject_client_and_path(tmp_path):
     client = QdrantClient(":memory:")
 

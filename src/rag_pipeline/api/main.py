@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from pypdf.errors import PdfReadError
 
 from rag_pipeline.chunking.boundaries import WordBoundaryChunker
+from rag_pipeline.config import Settings
 from rag_pipeline.embeddings.sentence_transformer import (
     SentenceTransformerEmbeddingProvider,
 )
@@ -17,7 +18,6 @@ from rag_pipeline.ingestion import IngestionPipeline
 from rag_pipeline.retrieval import RAGPipeline
 from rag_pipeline.vectorstore.qdrant import QdrantVectorStore
 
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 ALLOWED_EXTENSIONS = {".txt", ".pdf", ".docx"}
 
 
@@ -48,38 +48,39 @@ class SearchResponse(BaseModel):
 
 def create_app(
     pipeline: RAGPipeline | None = None,
+    settings: Settings | None = None,
 ) -> FastAPI:
     """Create the API with an injectable retrieval pipeline."""
+
+    if settings is None:
+        settings = Settings()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         owned_store = None
 
         if pipeline is None:
-            # Persist vectors between server restarts.
-            owned_store = QdrantVectorStore(
-                vector_size=384,
-                path="data/qdrant",
+            embedder = SentenceTransformerEmbeddingProvider(
+                model_name=settings.embedding_model,
             )
 
-            try:
-                embedder = SentenceTransformerEmbeddingProvider()
+            # Persist vectors between server restarts.
+            owned_store = QdrantVectorStore(
+                collection_name=settings.collection_name,
+                vector_size=embedder.dimension,
+                path=settings.qdrant_path,
+            )
 
-                ingestion = IngestionPipeline(
+            app.state.pipeline = RAGPipeline(
+                embedder=embedder,
+                store=owned_store,
+                ingestion=IngestionPipeline(
                     chunker=WordBoundaryChunker(
-                        chunk_size=800,
-                        overlap=150,
+                        chunk_size=settings.chunk_size,
+                        overlap=settings.chunk_overlap,
                     )
-                )
-
-                app.state.pipeline = RAGPipeline(
-                    embedder=embedder,
-                    store=owned_store,
-                    ingestion=ingestion,
-                )
-            except Exception:
-                owned_store.client.close()
-                raise
+                ),
+            )
         else:
             # Tests can supply a lightweight fake embedding model.
             app.state.pipeline = pipeline
@@ -136,10 +137,13 @@ def create_app(
 
                     total_bytes += len(block)
 
-                    if total_bytes > MAX_UPLOAD_BYTES:
+                    if total_bytes > settings.max_upload_bytes:
                         raise HTTPException(
                             status_code=413,
-                            detail="File exceeds the 10 MB limit",
+                            detail=(
+                                "File exceeds the "
+                                f"{settings.max_upload_mb} MB limit"
+                            ),
                         )
 
                     output.write(block)

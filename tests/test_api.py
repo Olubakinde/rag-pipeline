@@ -7,6 +7,7 @@ from reportlab.pdfgen import canvas
 
 from rag_pipeline.api.main import create_app
 from rag_pipeline.chunking.boundaries import WordBoundaryChunker
+from rag_pipeline.config import Settings
 from rag_pipeline.ingestion import IngestionPipeline
 from rag_pipeline.retrieval import RAGPipeline
 from rag_pipeline.vectorstore.qdrant import QdrantVectorStore
@@ -186,6 +187,33 @@ def test_invalid_search_limit(client):
     )
 
     assert response.status_code == 422
+
+
+def test_configurable_file_size_limit():
+    store = QdrantVectorStore(vector_size=2)
+    pipeline = RAGPipeline(embedder=FakeEmbedder(), store=store)
+
+    application = create_app(
+        pipeline=pipeline,
+        settings=Settings(max_upload_mb=1),
+    )
+
+    with TestClient(application) as test_client:
+        response = test_client.post(
+            "/documents",
+            files={
+                "file": (
+                    "large.txt",
+                    b"a" * (1024 * 1024 + 1),
+                    "text/plain",
+                )
+            },
+        )
+
+    store.client.close()
+
+    assert response.status_code == 413
+    assert response.json()["detail"] == "File exceeds the 1 MB limit"
 
 
 def test_file_size_limit(client):

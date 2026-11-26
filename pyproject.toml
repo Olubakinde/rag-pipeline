@@ -24,7 +24,8 @@ vectorstore = [
 ]
 
 api = [
-    "fastapi[standard]>=0.115,<1"
+    "fastapi[standard]>=0.115,<1",
+    "pydantic-settings>=2"
 ]
 
 embeddings = [

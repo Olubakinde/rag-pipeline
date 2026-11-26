@@ -30,6 +30,15 @@ class FakeModel:
         self.query_calls.append((query, kwargs))
         return FakeArray([0.0, 1.0])
 
+    def get_embedding_dimension(self):
+        return 2
+
+
+def test_dimension_from_model():
+    provider = SentenceTransformerEmbeddingProvider(model=FakeModel())
+
+    assert provider.dimension == 2
+
 
 def test_embed_documents():
     model = FakeModel()

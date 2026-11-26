@@ -24,6 +24,12 @@ class SentenceTransformerEmbeddingProvider:
 
             self.model = SentenceTransformer(model_name)
 
+    @property
+    def dimension(self) -> int:
+        """Return the size of the vectors this model produces."""
+
+        return self.model.get_embedding_dimension()
+
     def embed_documents(
         self, texts: list[str]
     ) -> list[list[float]]:

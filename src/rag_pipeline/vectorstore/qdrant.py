@@ -55,9 +55,24 @@ class QdrantVectorStore:
         else:
             self.client = QdrantClient(":memory:")
 
-        if not self.client.collection_exists(
+        if self.client.collection_exists(
             collection_name=self.collection_name
         ):
+            # Switching embedding models needs a fresh collection.
+            existing_size = self.client.get_collection(
+                collection_name=self.collection_name
+            ).config.params.vectors.size
+
+            if existing_size != self.vector_size:
+                if client is None:
+                    self.client.close()
+
+                raise ValueError(
+                    f"Collection '{self.collection_name}' stores "
+                    f"{existing_size}-dimensional vectors, but "
+                    f"{self.vector_size} were requested"
+                )
+        else:
             self.client.create_collection(
                 collection_name=self.collection_name,
                 vectors_config=models.VectorParams(
