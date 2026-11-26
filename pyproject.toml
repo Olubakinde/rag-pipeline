@@ -23,6 +23,10 @@ vectorstore = [
     "qdrant-client>=1.15,<2"
 ]
 
+api = [
+    "fastapi[standard]>=0.115,<1"
+]
+
 embeddings = [
     "sentence-transformers>=3.0"
 ]
