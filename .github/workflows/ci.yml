@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          activate-environment: true
+
+      # The embeddings extra is skipped: tests use fake models, and
+      # installing PyTorch would add minutes to every run.
+      - name: Install dependencies
+        run: uv pip install -e ".[dev,api,vectorstore,cli]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest
