@@ -1,9 +1,8 @@
 from pathlib import Path
-from uuid import uuid4
 
 from pypdf import PdfReader
 
-from rag_pipeline.document import Document
+from rag_pipeline.document import Document, content_id
 
 
 class PdfParser:
@@ -52,7 +51,7 @@ class PdfParser:
         content = "\n\n".join(pages)
 
         return Document(
-            id=str(uuid4()),
+            id=content_id(content),
             text=content,
             source=file_path.name,
             metadata={

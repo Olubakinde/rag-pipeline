@@ -53,6 +53,22 @@ def test_index_and_search(tmp_path):
     )
 
 
+def test_reindex_same_file_without_duplicates(tmp_path):
+    file_path = tmp_path / "notes.txt"
+    file_path.write_text(
+        "Robots use sensors to navigate.",
+        encoding="utf-8",
+    )
+
+    store = QdrantVectorStore(vector_size=2)
+    pipeline = make_pipeline(store)
+
+    pipeline.index(file_path)
+    pipeline.index(file_path)
+
+    assert len(pipeline.search("robots", limit=10)) == 1
+
+
 def test_persistent_storage(tmp_path):
     document_path = tmp_path / "research.txt"
     document_path.write_text(

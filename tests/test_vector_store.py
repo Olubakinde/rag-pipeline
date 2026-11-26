@@ -84,6 +84,46 @@ def test_reindex_without_duplicates():
     assert len(hits) == 2
 
 
+def test_reindex_replaces_stale_chunks():
+    store = QdrantVectorStore(vector_size=2)
+    result = make_result()
+
+    store.add(result, [[1.0, 0.0], [0.0, 1.0]])
+
+    # Re-index the same document as a single chunk.
+    rechunked = IngestionResult(
+        document=result.document,
+        chunks=[
+            Chunk(
+                document_id=result.document.id,
+                text=result.document.text,
+                index=0,
+                start=0,
+                end=len(result.document.text),
+            )
+        ],
+    )
+
+    store.add(rechunked, [[1.0, 0.0]])
+
+    hits = store.search([1.0, 0.0], limit=10)
+
+    assert len(hits) == 1
+    assert hits[0].chunk.text == result.document.text
+
+
+def test_failed_add_keeps_existing_chunks():
+    store = QdrantVectorStore(vector_size=2)
+    result = make_result()
+
+    store.add(result, [[1.0, 0.0], [0.0, 1.0]])
+
+    with pytest.raises(ValueError):
+        store.add(result, [[1.0, 0.0], [0.0, 1.0, 0.0]])
+
+    assert len(store.search([1.0, 0.0], limit=10)) == 2
+
+
 def test_mismatched_embedding_count():
     store = QdrantVectorStore(vector_size=2)
 

@@ -1,5 +1,12 @@
 from dataclasses import dataclass, field
+from hashlib import sha256
 from typing import Any
+
+
+def content_id(text: str) -> str:
+    """Derive a stable document ID from its extracted text."""
+
+    return sha256(text.encode("utf-8")).hexdigest()
 
 
 @dataclass

@@ -16,6 +16,23 @@ def test_parse_valid_text_file(tmp_path):
     assert document.id
 
 
+# Identical content must map to the same ID so re-indexing is idempotent.
+def test_document_id_is_content_based(tmp_path):
+    first = tmp_path / "first.txt"
+    copy = tmp_path / "copy.txt"
+    other = tmp_path / "other.txt"
+
+    first.write_text("Robots navigate.", encoding="utf-8")
+    copy.write_text("Robots navigate.", encoding="utf-8")
+    other.write_text("Coffee tastes good.", encoding="utf-8")
+
+    parser = TextParser()
+
+    assert parser.parse(first).id == parser.parse(first).id
+    assert parser.parse(first).id == parser.parse(copy).id
+    assert parser.parse(first).id != parser.parse(other).id
+
+
 # Ensure the parser rejects unsupported file formats.
 def test_unsupported_file_type(tmp_path):
     file = tmp_path / "sample.pdf"

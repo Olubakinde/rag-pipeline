@@ -1,11 +1,10 @@
 from pathlib import Path
-from uuid import uuid4
 
 from docx import Document as WordDocument
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
-from rag_pipeline.document import Document
+from rag_pipeline.document import Document, content_id
 
 
 class DocxParser:
@@ -61,7 +60,7 @@ class DocxParser:
 
         # Return a normalized document.
         return Document(
-            id=str(uuid4()),
+            id=content_id(content),
             text=content,
             source=file_path.name,
             metadata={

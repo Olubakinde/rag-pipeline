@@ -18,6 +18,17 @@ class SearchHit:
     pages: list[int]
 
 
+def _document_filter(document_id: str) -> models.Filter:
+    return models.Filter(
+        must=[
+            models.FieldCondition(
+                key="document_id",
+                match=models.MatchValue(value=document_id),
+            )
+        ]
+    )
+
+
 class QdrantVectorStore:
     """Store and search document embeddings using Qdrant."""
 
@@ -124,6 +135,15 @@ class QdrantVectorStore:
                     },
                 )
             )
+
+        # Replace any earlier version so re-chunking leaves no stale points.
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=models.FilterSelector(
+                filter=_document_filter(result.document.id)
+            ),
+            wait=True,
+        )
 
         if points:
             self.client.upsert(
