@@ -47,6 +47,7 @@ class SearchRequest(BaseModel):
     limit: int = Field(default=5, ge=1, le=50)
     min_score: float | None = Field(default=None, ge=-1, le=1)
     sources: list[str] | None = None
+    diversity: float = Field(default=0.0, ge=0, le=1)
 
 
 class SearchResult(BaseModel):
@@ -248,6 +249,7 @@ def create_app(
             limit=request.limit,
             min_score=request.min_score,
             sources=request.sources,
+            diversity=request.diversity,
         )
 
         return SearchResponse(

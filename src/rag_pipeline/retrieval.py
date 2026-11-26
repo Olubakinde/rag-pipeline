@@ -52,6 +52,7 @@ class RAGPipeline:
         limit: int = 5,
         min_score: float | None = None,
         sources: list[str] | None = None,
+        diversity: float = 0.0,
     ) -> list[SearchHit]:
         """Retrieve relevant document passages."""
 
@@ -62,6 +63,7 @@ class RAGPipeline:
             limit=limit,
             min_score=min_score,
             sources=sources,
+            diversity=diversity,
         )
 
     def list_documents(self) -> list[StoredDocument]:

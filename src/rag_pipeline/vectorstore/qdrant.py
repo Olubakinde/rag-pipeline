@@ -184,8 +184,14 @@ class QdrantVectorStore:
         limit: int = 5,
         min_score: float | None = None,
         sources: list[str] | None = None,
+        diversity: float = 0.0,
     ) -> list[SearchHit]:
-        """Retrieve the closest matching document chunks."""
+        """Retrieve the closest matching document chunks.
+
+        A diversity above zero re-ranks candidates with Maximal Marginal
+        Relevance, trading similarity for results that repeat each other
+        less, which matters because neighbouring chunks overlap.
+        """
 
         if len(query_vector) != self.vector_size:
             raise ValueError(
@@ -194,6 +200,20 @@ class QdrantVectorStore:
 
         if limit <= 0:
             raise ValueError("Search limit must be positive")
+
+        if not 0.0 <= diversity <= 1.0:
+            raise ValueError("Diversity must be between 0 and 1")
+
+        query: list[float] | models.NearestQuery = query_vector
+
+        if diversity > 0:
+            query = models.NearestQuery(
+                nearest=query_vector,
+                mmr=models.Mmr(
+                    diversity=diversity,
+                    candidates_limit=limit * 5,
+                ),
+            )
 
         query_filter = None
 
@@ -209,7 +229,7 @@ class QdrantVectorStore:
 
         response = self.client.query_points(
             collection_name=self.collection_name,
-            query=query_vector,
+            query=query,
             limit=limit,
             query_filter=query_filter,
             score_threshold=min_score,

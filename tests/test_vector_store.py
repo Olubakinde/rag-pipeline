@@ -229,6 +229,57 @@ def test_search_filtered_by_source():
     assert [hit.source for hit in hits] == ["atlas.txt"]
 
 
+def make_near_duplicate_store():
+    store = QdrantVectorStore(vector_size=2)
+
+    for document_id, vector in [
+        ("original", [1.0, 0.0]),
+        ("near-copy", [0.99, 0.05]),
+        ("different", [0.6, 0.8]),
+    ]:
+        store.add(
+            make_single_chunk_result(
+                document_id, f"{document_id}.txt", document_id
+            ),
+            [vector],
+        )
+
+    return store
+
+
+def test_search_without_diversity_returns_near_duplicates():
+    store = make_near_duplicate_store()
+
+    hits = store.search([1.0, 0.0], limit=2)
+
+    assert [hit.source for hit in hits] == [
+        "original.txt",
+        "near-copy.txt",
+    ]
+
+
+def test_search_with_diversity_skips_near_duplicates():
+    store = make_near_duplicate_store()
+
+    hits = store.search([1.0, 0.0], limit=2, diversity=0.8)
+
+    assert [hit.source for hit in hits] == [
+        "original.txt",
+        "different.txt",
+    ]
+
+    # Scores still report similarity to the query.
+    assert hits[1].score == pytest.approx(0.6)
+
+
+@pytest.mark.parametrize("diversity", [-0.1, 1.1])
+def test_invalid_diversity(diversity):
+    store = QdrantVectorStore(vector_size=2)
+
+    with pytest.raises(ValueError):
+        store.search([1.0, 0.0], diversity=diversity)
+
+
 def test_mismatched_embedding_count():
     store = QdrantVectorStore(vector_size=2)
 

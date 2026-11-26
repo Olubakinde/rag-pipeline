@@ -218,6 +218,27 @@ def test_search_filters(client):
     assert [result["source"] for result in by_source] == ["coffee.txt"]
 
 
+def test_search_with_diversity(client):
+    upload_text(client, "robots.txt", b"Robots navigate.")
+
+    response = client.post(
+        "/search",
+        json={"query": "robots", "diversity": 0.5},
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()["results"]) == 1
+
+
+def test_invalid_diversity(client):
+    response = client.post(
+        "/search",
+        json={"query": "robots", "diversity": 2},
+    )
+
+    assert response.status_code == 422
+
+
 def test_invalid_min_score(client):
     response = client.post(
         "/search",
