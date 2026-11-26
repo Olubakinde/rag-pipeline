@@ -45,6 +45,8 @@ class DeleteResponse(BaseModel):
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1)
     limit: int = Field(default=5, ge=1, le=50)
+    min_score: float | None = Field(default=None, ge=-1, le=1)
+    sources: list[str] | None = None
 
 
 class SearchResult(BaseModel):
@@ -244,6 +246,8 @@ def create_app(
         hits = app.state.pipeline.search(
             query=request.query,
             limit=request.limit,
+            min_score=request.min_score,
+            sources=request.sources,
         )
 
         return SearchResponse(

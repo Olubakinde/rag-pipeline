@@ -182,6 +182,8 @@ class QdrantVectorStore:
         self,
         query_vector: list[float],
         limit: int = 5,
+        min_score: float | None = None,
+        sources: list[str] | None = None,
     ) -> list[SearchHit]:
         """Retrieve the closest matching document chunks."""
 
@@ -193,10 +195,24 @@ class QdrantVectorStore:
         if limit <= 0:
             raise ValueError("Search limit must be positive")
 
+        query_filter = None
+
+        if sources:
+            query_filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="source",
+                        match=models.MatchAny(any=sources),
+                    )
+                ]
+            )
+
         response = self.client.query_points(
             collection_name=self.collection_name,
             query=query_vector,
             limit=limit,
+            query_filter=query_filter,
+            score_threshold=min_score,
             with_payload=True,
         )
 

@@ -205,6 +205,30 @@ def test_delete_unknown_document():
     assert len(store.search([1.0, 0.0], limit=10)) == 2
 
 
+def test_search_min_score():
+    store = QdrantVectorStore(vector_size=2)
+
+    store.add(make_result(), [[1.0, 0.0], [0.0, 1.0]])
+
+    hits = store.search([1.0, 0.0], limit=10, min_score=0.5)
+
+    assert [hit.chunk.text for hit in hits] == ["Robots navigate."]
+
+
+def test_search_filtered_by_source():
+    store = QdrantVectorStore(vector_size=2)
+
+    store.add(make_result(), [[1.0, 0.0], [0.0, 1.0]])
+    store.add(
+        make_single_chunk_result("doc-002", "atlas.txt", "Maps."),
+        [[1.0, 0.0]],
+    )
+
+    hits = store.search([1.0, 0.0], limit=10, sources=["atlas.txt"])
+
+    assert [hit.source for hit in hits] == ["atlas.txt"]
+
+
 def test_mismatched_embedding_count():
     store = QdrantVectorStore(vector_size=2)
 

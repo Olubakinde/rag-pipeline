@@ -200,6 +200,33 @@ def test_delete_unknown_document(client):
     assert response.status_code == 404
 
 
+def test_search_filters(client):
+    upload_text(client, "robots.txt", b"Robots navigate.")
+    upload_text(client, "coffee.txt", b"Coffee tastes good.")
+
+    by_score = client.post(
+        "/search",
+        json={"query": "robots", "min_score": 0.5},
+    ).json()["results"]
+
+    by_source = client.post(
+        "/search",
+        json={"query": "robots", "sources": ["coffee.txt"]},
+    ).json()["results"]
+
+    assert [result["source"] for result in by_score] == ["robots.txt"]
+    assert [result["source"] for result in by_source] == ["coffee.txt"]
+
+
+def test_invalid_min_score(client):
+    response = client.post(
+        "/search",
+        json={"query": "robots", "min_score": 1.5},
+    )
+
+    assert response.status_code == 422
+
+
 def test_unsupported_file(client):
     response = client.post(
         "/documents",

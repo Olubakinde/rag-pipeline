@@ -50,6 +50,8 @@ class RAGPipeline:
         self,
         query: str,
         limit: int = 5,
+        min_score: float | None = None,
+        sources: list[str] | None = None,
     ) -> list[SearchHit]:
         """Retrieve relevant document passages."""
 
@@ -58,6 +60,8 @@ class RAGPipeline:
         return self.store.search(
             query_vector,
             limit=limit,
+            min_score=min_score,
+            sources=sources,
         )
 
     def list_documents(self) -> list[StoredDocument]:
