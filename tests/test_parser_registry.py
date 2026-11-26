@@ -81,3 +81,12 @@ def test_custom_parser_registration(tmp_path):
 
     assert document.text == "# My Project"
     assert document.metadata["file_type"] == "md"
+    assert ".md" in registry.supported_extensions
+
+
+def test_supported_extensions():
+    assert ParserRegistry().supported_extensions == {
+        ".txt",
+        ".pdf",
+        ".docx",
+    }

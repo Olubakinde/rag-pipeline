@@ -33,6 +33,12 @@ class ParserRegistry:
 
         self._parsers[extension] = parser
 
+    @property
+    def supported_extensions(self) -> set[str]:
+        """Return the file extensions that have a registered parser."""
+
+        return set(self._parsers)
+
     def get_parser(self, path: str | Path) -> DocumentParser:
         """Find the appropriate parser for a file."""
 
